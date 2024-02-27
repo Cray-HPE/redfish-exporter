@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cray-sysmgmt-health-redfish-cron
+  namespace: sysmgmt-health
+  labels:
+    {{- include "redfish_exporter.labels" . | nindent 4 }}
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: redfish-exporter
+            image: registry.local/artifactory.algol60.net/csm-docker/unstable/redfish-exporter:0.0.1-20240422091622_b456de8 
+            securityContext:
+              privileged: true
+            command: ["/bin/sh", "-c"]
+            args: 
+            - cp /mnt/fetch_health.sh /tmp/fetch_health.sh && chmod a+x /tmp/fetch_health.sh && /tmp/fetch_health.sh
+            volumeMounts:
+            - name: script-volume
+              mountPath: /mnt
+            - name: redfish-metrics
+              mountPath: /tmp
+              readOnly: false
+          volumes:
+          - name: script-volume
+            configMap:
+              name: cray-sysmgmt-health-redfish
+          - hostPath:
+              path: /var/lib/node_exporter
+            name: redfish-metrics
+          restartPolicy: OnFailure
