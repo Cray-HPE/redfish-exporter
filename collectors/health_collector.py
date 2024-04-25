@@ -33,21 +33,12 @@ class HealthCollector(object):
     
     def parse_nvme_info(self, providing_drives):
         attributes = {
-             "available_spare": "",
-             "available_sparmedia_errorse_threshold": "",
-             "controller_busy_time": "",
-             "error_information_log_entries": "",
-             "exit_status": "",
-             "firmware_version": "",
-             "host_read": "",
-             "host_write": "",
              "media_errors": "",
              "percentage_used": "",
              "power_cycles_count": "",
              "power_on_hours": "",
              "smartctl_error": "",
-             "temperature": "",
-             "unsafe_shutdowns": ""
+             "temperature": ""
              }
         
         oem_data = providing_drives.get("Oem", {})
@@ -67,28 +58,12 @@ class HealthCollector(object):
                break
 
         for key, value in smart_data.items():
-            if 'spare' in key and not 'threshold' in key:
-                attributes["available_spare"] = value.lower()
-            elif 'spare' in key and 'threshold' in key:
-                attributes["available_spare_threshold"] = value.lower()
-            elif 'controller' in key:
-                attributes["controller_busy_time"] = value.lower()
-            elif 'information' in key:
-                attributes["error_information_log_entries"] = value.lower()
-            elif 'firmware' in key:
-                attributes["firmware_version"] = value.lower()
-            elif 'write' in key:
-                attributes["host_write"] = value.lower()
-            elif 'read' in key:
-                attributes["host_read"] = value.lower()
-            elif 'hours' in key:
+            if 'hours' in key:
                 attributes["power_on_hours"] = value.lower()
             elif 'temperature' in key or 'Temperature' in key:
                 attributes["temperature"] = value.lower()
             elif 'Cycle' in key or 'cycles' in key:
                 attributes["power_cycles_count"] = value.lower()
-            elif 'shutdowns' in key:
-                attributes["unsafe_shutdowns"] = value.lower()
             elif 'percentage' in key or 'Percentage' in key:
                 attributes["percentage_used"] = value.lower()
             elif 'media' in key or 'Media' in key:
@@ -111,7 +86,7 @@ class HealthCollector(object):
         self.health_metrics.add_sample("smartmon_device_smart_healthy", value=smart_health, labels=current_labels)
 
         # smartmon_device_info
-        info_labels = {"disk": f"/dev/{disk_name}","firmware_version": attributes.get("firmware_version", ""),"type": providing_drives.get("MediaType", "").lower(),"serial_number": providing_drives.get("Id", ""),"model_family": providing_drives.get("Model", "").lower(),"host":self.col.host }
+        info_labels = {"disk": f"/dev/{disk_name}","type": providing_drives.get("MediaType", "").lower(),"serial_number": providing_drives.get("Id", ""),"model_family": providing_drives.get("Model", "").lower(),"host":self.col.host }
         self.health_metrics.add_sample("smartmon_device_info", value=smart_health, labels=info_labels)
         
 
@@ -160,61 +135,6 @@ class HealthCollector(object):
         run_time = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         self.health_metrics.add_sample("smartmon_smartctl_run", value=run_time, labels=current_labels)
         
-        # smartmon_unsafe_shutdowns_count_raw_value
-        unsafe_shutdowns = attributes.get("unsafe_shutdowns", "")
-        if unsafe_shutdowns and unsafe_shutdowns.isdigit():
-            unsafe_shutdowns = int(unsafe_shutdowns)
-            self.health_metrics.add_sample("smartmon_unsafe_shutdowns_count_raw_value", value=unsafe_shutdowns, labels=current_labels)
-        else:
-            pass
-
-        # smartmon_error_information_log_entries_raw_value
-        error_info = attributes.get("error_information_log_entries", "")
-        if error_info and error_info.isdigit():
-            error_info = int(error_info)
-            self.health_metrics.add_sample("smartmon_error_information_log_entries_raw_value", value=error_info, labels=current_labels)
-        else:
-            pass
-
-        # smartmon_host_read_commands_raw_value
-        host_read = attributes.get("host_read", "")
-        if host_read and host_read.isdigit():
-            host_read = int(host_read)
-            self.health_metrics.add_sample("smartmon_host_read_commands_raw_value", value=host_read, labels=current_labels)
-        else:
-            pass
-
-        # smartmon_host_write_commands_raw_value
-        host_write = attributes.get("host_write", "")
-        if host_write and host_write.isdigit():
-            host_write = int(host_write)
-            self.health_metrics.add_sample("smartmon_host_write_commands_raw_value", value=host_write, labels=current_labels)
-        else:
-            pass
-
-        # smartmon_controller_busy_time_raw_value
-        cont_busy = attributes.get("controller_busy_time", "")
-        if cont_busy and cont_busy.isdigit():
-            cont_busy = int(cont_busy)
-            self.health_metrics.add_sample("smartmon_controller_busy_time_raw_value", value=cont_busy, labels=current_labels)
-        else:
-            pass
-
-        # smartmon_available_spare_raw_value
-        available_spare = attributes.get("available_spare", "")
-        if available_spare and available_spare.isdigit():
-            available_spare = int(available_spare)
-            self.health_metrics.add_sample("smartmon_available_spare_raw_value", value=available_spare, labels=current_labels)
-        else:
-            pass
-        # smartmon_available_spare_threshold
-
-        spare_threshold = attributes.get("available_spare_threshold", "")
-        if spare_threshold and spare_threshold.isdigit():
-            spare_threshold = int(spare_threshold)
-            self.health_metrics.add_sample("smartmon_available_spare_threshold_raw_value", value=spare_threshold, labels=current_labels)
-        else:
-            pass
 
     def parse_scsi_info(self, providing_drives):
         attributes = {
@@ -244,9 +164,7 @@ class HealthCollector(object):
                break
         
         for key, value in smart_data.items():
-            if 'defects' in key:
-                attributes["grown_defects_count"] = value.lower()
-            elif 'hours' in key:
+            if 'hours' in key:
                 attributes["power_on_hours"] = value.lower()
             elif 'temperature' in key or 'Temperature' in key:
                 attributes["temperature"] = value.lower()
@@ -306,16 +224,10 @@ class HealthCollector(object):
             self.health_metrics.add_sample("smartmon_percentage_used_raw_value", value=percentage_used, labels=current_labels)
         else:
             pass
-
-        # smartmon_grown_defects_count_raw_value
-        grown_defect = attributes.get("grown_defects_count", "")
-        if grown_defect and grown_defect.isdigit():
-            grown_defect = int(grown_defect)
-            self.health_metrics.add_sample("smartmon_grown_defects_count_raw_value", value=grown_defect, labels=current_labels)
-        else:
-            pass
-
-
+        
+        # smartmon_smartctl_run
+	run_time = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        self.health_metrics.add_sample("smartmon_smartctl_run", value=run_time, labels=current_labels)
 
     def get_smart_data(self):        
 

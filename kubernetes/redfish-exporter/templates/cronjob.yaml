@@ -13,7 +13,11 @@ spec:
         spec:
           containers:
           - name: redfish-exporter
+<<<<<<< HEAD
             image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+=======
+            image: registry.local/artifactory.algol60.net/csm-docker/unstable/redfish-exporter:0.0.1-20240422091622_b456de8 
+>>>>>>> d3ab220f0ab96cbe1676db8b0bd1be7aac1b8a25
             securityContext:
               privileged: true
             command: ["/bin/sh", "-c"]
