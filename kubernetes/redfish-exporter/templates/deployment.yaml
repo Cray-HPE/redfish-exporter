@@ -43,7 +43,6 @@ spec:
           - |
             python3 "/redfish_exporter/main.py"
             "--config.file=/config/config.yml"
-            "--log.level={{ .Values.logLevel }}"
           ports:
             - name: http
               containerPort: 9220
