@@ -118,7 +118,6 @@ class HealthCollector(object):
         percentage_used = attributes.get("percentage_used", "")
         if  percentage_used and percentage_used[:-1].isdigit():
             percentage_used = int(percentage_used[:-1])
-            logging.info(percentage_used)
             self.health_metrics.add_sample("smartmon_percentage_used_raw_value", value=percentage_used, labels=current_labels)
         else:
             pass
@@ -226,7 +225,7 @@ class HealthCollector(object):
             pass
         
         # smartmon_smartctl_run
-	run_time = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        run_time = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         self.health_metrics.add_sample("smartmon_smartctl_run", value=run_time, labels=current_labels)
 
     def get_smart_data(self):        
