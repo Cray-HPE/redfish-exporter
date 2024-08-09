@@ -9,7 +9,7 @@ extraLabels:
   # key1: value1
 
 image:
-  repository: registry.local/artifactory.algol60.net/csm-docker/unstable/redfish-exporter
+  repository: artifactory.algol60.net/csm-docker/stable/redfish-exporter
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: 0.0.0-image
