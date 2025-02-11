@@ -328,80 +328,76 @@ class HealthCollector(object):
 
         for storage_service_member in storage_services_collection["Members"]:
             for key, storage_url in storage_service_member.items():
-               if key.startswith("enclosure_id") and storage_url.startswith("/redfish/v1/") and not storage_url.endswith("NULL"):
-                  storage_service = self.col.connect_server(storage_url)
-                  type_storage_service = type(storage_service)
+               if storage_url.split("/")[-1].startswith("lustre-") or not storage_url.startswith("/redfish/v1/"):
+                   continue
+               storage_service = self.col.connect_server(storage_url)
+               if isinstance(storage_service, int) and storage_service not in (200, 201):
+                   logging.info("No response from Storage service endpoint")
+                   continue
+               elif storage_service is not None and 'StoragePools' in storage_service:
+                   storage_pool_collection = self.col.connect_server(storage_service["StoragePools"]['@odata.id'])
+               else:
+                   logging.info("StoragePools endpoint does not exist")
+                   continue
                   
-                  if type_storage_service is int and storage_service not in (200, 201):
-                      logging.info("No response from Storage service endpoint")
-                      continue
-                  elif storage_service is not None and 'StoragePools' in storage_service:
-                      storage_pool_collection = self.col.connect_server(storage_service["StoragePools"]['@odata.id'])
-                  else:
-                      logging.info("StoragePools endpoint does not exist")
-                      continue
-                  
-                  if not storage_pool_collection or 'Members' not in storage_pool_collection:
-                     continue
+               if not storage_pool_collection or 'Members' not in storage_pool_collection:
+                   continue
 
-                  for storage_pool_member in storage_pool_collection["Members"]:
-                      for pool, pool_url in storage_pool_member.items():
-                          if pool.startswith("enclosure_id") and pool_url.startswith("/redfish/v1/") and not pool_url.endswith("NULL"):
-                             storage_pool = self.col.connect_server(pool_url)
-                             type_storage_pool = type(storage_pool)
-                  
-                             if type_storage_pool is int and storage_pool not in (200, 201):
-                                 logging.info("No response from Storage pool endpoint")
-                                 continue
-                             elif storage_pool is not None and 'CapacitySources' in storage_pool:
-                                 self.col.urls["CapacitySources"]=f"{storage_pool['@odata.id']}/CapacitySources"
-                                 capacity_source_collection = self.col.connect_server(self.col.urls["CapacitySources"])
-                             else:
-                                 logging.info("CapacitySources endpoint does not exist")
-                                 continue
+               for storage_pool_member in storage_pool_collection["Members"]:
+                   for pool, pool_url in storage_pool_member.items():
+                       if not pool_url.startswith("/redfish/v1/") or pool_url.endswith("NULL"):
+                          continue
+                       storage_pool = self.col.connect_server(pool_url)
+                       if isinstance(storage_pool, int) and storage_pool not in (200, 201):
+                          logging.info("No response from Storage pool endpoint")
+                          continue
+                       elif storage_pool is not None and 'CapacitySources' in storage_pool:
+                          self.col.urls["CapacitySources"]=f"{storage_pool['@odata.id']}/CapacitySources"
+                          capacity_source_collection = self.col.connect_server(self.col.urls["CapacitySources"])
+                       else:
+                          logging.info("CapacitySources endpoint does not exist")
+                          continue
                              
-                             if not capacity_source_collection or 'Members' not in capacity_source_collection:
-                                continue
+                       if not capacity_source_collection or 'Members' not in capacity_source_collection:
+                          continue
 
-                             for capacity_source_member in capacity_source_collection["Members"]:
-                                 for capacity, capacity_url in capacity_source_member.items():
-                                     if capacity.startswith("@odata.id") and capacity_url.startswith("/redfish/v1/") and not capacity_url.endswith("NULL"):
-                                        capacity_source = self.col.connect_server(capacity_url)
-                                        type_capacity_source = type(capacity_source)
-                                        
-                                        if type_capacity_source is int and capacity_source not in (200, 201):
-                                            logging.info("No response from Capacity source endpoint")
-                                            continue
-                                        elif capacity_source is not None and 'CapacitySources' in storage_pool:
-                                             self.col.urls["ProvidingDrives"]=f"{capacity_source['@odata.id']}/ProvidingDrives"
-                                             providing_drives_collection = self.col.connect_server(self.col.urls["ProvidingDrives"])
-                                        else:
-                                            logging.info("ProvidingDrives endpoint does not exist")
-                                            continue
+                       for capacity_source_member in capacity_source_collection["Members"]:
+                          for capacity, capacity_url in capacity_source_member.items():
+                              if not capacity_url.startswith("/redfish/v1/") or capacity_url.endswith("NULL"):
+                                 continue
+                              capacity_source = self.col.connect_server(capacity_url)
+                              if isinstance(capacity_source, int) and capacity_source not in (200, 201):
+                                 logging.info("No response from Capacity source endpoint")
+                                 continue
+                              elif capacity_source is not None and 'ProvidingDrives' in capacity_source:
+                                 self.col.urls["ProvidingDrives"]=f"{capacity_source['@odata.id']}/ProvidingDrives"
+                                 providing_drives_collection = self.col.connect_server(self.col.urls["ProvidingDrives"])
+                              else:
+                                 logging.info("ProvidingDrives endpoint does not exist")
+                                 continue
 
-                                        if not providing_drives_collection or 'Members' not in providing_drives_collection:
-                                           continue
+                              if not providing_drives_collection or 'Members' not in providing_drives_collection:
+                                 continue
 
-                                        for providing_drives_member in providing_drives_collection["Members"]:
-                                            for drives, drives_url in providing_drives_member.items():
-                                                if drives.startswith("Bay") and drives_url.startswith("/redfish/v1") and not drives_url.endswith("NULL"):
-                                                   providing_drives = self.col.connect_server(drives_url)
-                                                   type_providing_drives = type(providing_drives)
-
-                                                   if type_providing_drives is int and providing_drives not in (200, 201):
-                                                       logging.info("No response from Providing Drives endpoint")
-                                                       continue
-                                                   elif providing_drives is not None and "@odata.id" in providing_drives:
-                                                       media_type = providing_drives["MediaType"].lower()
+                              for providing_drives_member in providing_drives_collection["Members"]:
+                                  for drives, drives_url in providing_drives_member.items():
+                                      if not drives_url.startswith("/redfish/v1") or drives_url.endswith("NULL"):
+                                          continue
+                                      providing_drives = self.col.connect_server(drives_url)
+                                      if isinstance(providing_drives, int) and providing_drives not in (200, 201):
+                                          logging.info("No response from Providing Drives endpoint")
+                                          continue
+                                      elif providing_drives is not None and "@odata.id" in providing_drives:
+                                          media_type = providing_drives["MediaType"].lower()
                                                        
-                                                       if media_type == "nvme":
-                                                           self.parse_nvme_info(providing_drives)
-                                                       elif media_type == "sas":
-                                                           self.parse_scsi_info(providing_drives)
-                                                       else:
-                                                           continue
-                                                   else:
-                                                       continue
+                                          if media_type == "nvme":
+                                              self.parse_nvme_info(providing_drives)
+                                          elif media_type == "sas":
+                                              self.parse_scsi_info(providing_drives)
+                                          else:
+                                              continue
+                                      else:
+                                          continue
 
     def collect(self):
 

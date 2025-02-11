@@ -16,15 +16,10 @@ class welcomePage:
     def on_get(self, req, resp):
         resp.status = falcon.HTTP_200
         resp.content_type = 'text/html'
-        resp.body = """
+        resp.text = """
         <h1>Redfish Exporter</h1>
         <h2>Prometheus Exporter for redfish API based servers monitoring</h2>
-        <ul>
-            <li>Use <a href="/redfish">/redfish</a> to retrieve health metrics.</li>
-            <li>Use <a href="/firmware">/firmware</a> to retrieve firmware version metrics.</li>
-        </ul>
         """
-
 
 class metricsHandler:
     def __init__(self, config, metrics_type):
@@ -38,13 +33,6 @@ class metricsHandler:
             raise falcon.HTTPMissingParam("target")
 
         logging.debug(f"Received Target: {self.target}")
-
-        #self._job = req.get_param("job")
-        #if not self._job:
-        #    logging.error(f"Target {self.target}: No job provided!")
-        #    raise falcon.HTTPMissingParam("job")
-
-        #logging.debug(f"Received Job: {self._job}")
 
         ip_re = re.compile(
             r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
@@ -74,8 +62,6 @@ class metricsHandler:
                 logging.error(msg)
                 raise falcon.HTTPInvalidParam(msg, "target")
 
-        #usr_env_var = self._job.replace("-", "_").upper() + "_USERNAME"
-        #pwd_env_var = self._job.replace("-", "_").upper() + "_PASSWORD"
         usr = self._config.get("username")
         pwd = self._config.get("password")
         rf_port = self._config.get("rf_port")
@@ -97,10 +83,10 @@ class metricsHandler:
 
             try:
                 # collect the actual metrics
-                resp.body = generate_latest(registry)
+                resp.text = generate_latest(registry)
                 resp.status = falcon.HTTP_200
 
             except Exception as err:
                 message = f"Exception: {traceback.format_exc()}"
                 logging.error(f"Target {self.target}: {message}")
-                raise falcon.HTTPBadRequest("Bad Request", message)
+                raise falcon.HTTPBadRequest(description=message)

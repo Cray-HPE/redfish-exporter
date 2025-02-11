@@ -1,6 +1,6 @@
-requests
-prometheus-client
-falcon
-argparse
-pyyaml
-pyOpenSSL
+requests==2.32.3
+prometheus-client==0.21.1
+falcon==4.0.2
+argparse==1.4.0
+pyyaml==6.0.2
+pyOpenSSL==24.3.0
