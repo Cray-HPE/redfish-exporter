@@ -10,20 +10,18 @@ import yaml
 import logging
 import os
 import warnings
+import sys
 
 class _SilentHandler(WSGIRequestHandler):
     """WSGI handler that does not log requests."""
 
     def log_message(self, format, *args):
         """Log nothing."""
-        pass
-
 
 class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
     """Thread per request HTTP server."""
-    pass
 
-def falcon_app():
+def falcon_app(config):
     port = int(os.getenv("LISTEN_PORT", config.get("listen_port", 9200)))
     addr = "0.0.0.0"
     logging.info("Starting Redfish Prometheus Server on Port %s", port)
@@ -34,13 +32,14 @@ def falcon_app():
 
     with make_server(addr, port, api, ThreadingWSGIServer, handler_class=_SilentHandler) as httpd:
         httpd.daemon = True
+        logging.info("Listening on Port %s", port)
         try:
             httpd.serve_forever()
         except (KeyboardInterrupt, SystemExit):
             logging.info("Stopping Redfish Prometheus Server")
 
 def enable_logging(filename, debug):
-    # enable logging
+    
     logger = logging.getLogger()
     
     formatter = logging.Formatter('%(asctime)-15s %(process)d %(filename)24s:%(lineno)-3d %(levelname)-7s %(message)s')
@@ -59,14 +58,15 @@ def enable_logging(filename, debug):
             fh = logging.FileHandler(filename, mode='w')
         except FileNotFoundError as e:
             logging.error(f"Could not open logfile {filename}: {e}")
-            exit(1)
+            sys.exit(1)
 
         fh.setFormatter(formatter)
         logger.addHandler(fh)
 
-if __name__ == "__main__":
-
-    # command line options
+def get_args():
+    """
+    Get the command line arguments
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-c",
@@ -84,12 +84,17 @@ if __name__ == "__main__":
         required=False
     )
     parser.add_argument(
-        "-d", "--debug", 
-        help="Debugging mode", 
-        action="store_true", 
+        "-d", "--debug",
+        help="Debugging mode",
+        action="store_true",
         required=False
     )
-    args = parser.parse_args()
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+
+    args = get_args()
 
     warnings.filterwarnings("ignore")
 
@@ -99,10 +104,10 @@ if __name__ == "__main__":
 
     if args.config:
         try:
-            with open(args.config, "r") as config_file:
-                config = yaml.load(config_file.read(), Loader=yaml.FullLoader)
+            with open(args.config, "r", encoding="utf8") as config_file:
+                configuration = yaml.load(config_file.read(), Loader=yaml.FullLoader)
         except FileNotFoundError as err:
             print(f"Config File not found: {err}")
-            exit(1)
+            sys.exit(1)
 
-    falcon_app()
+        falcon_app(configuration)

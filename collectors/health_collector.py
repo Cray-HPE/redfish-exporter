@@ -401,7 +401,7 @@ class HealthCollector(object):
 
     def collect(self):
 
-        logging.info(f"Target {self.col.target}: Collecting data ...")
+        logging.info("Target %s: Collecting health data ...", self.col.target)
         current_labels = {"device_type": "system", "device_name": "summary"}
         current_labels.update(self.col.labels)
         self.health_metrics.add_sample(
@@ -412,8 +412,13 @@ class HealthCollector(object):
         if self.col.urls["StorageServices"]:
             self.get_smart_data()
         else:
-            logging.warning(f"Target {self.col.target}: No SMART data provided! Cannot get SMART data!")
+            logging.warning("Target %s: No SMART data provided! Cannot get SMART data!", self.col.target)
            
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
-            logging.exception(f"Target {self.target}: An exception occured in {exc_tb.tb_frame.f_code.co_filename}:{exc_tb.tb_lineno}")
+            logging.exception(
+                "Target %s: An exception occured in %s:%s",
+                self.col.target,
+                exc_tb.tb_frame.f_code.co_filename,
+                exc_tb.tb_lineno
+            )
