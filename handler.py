@@ -3,8 +3,6 @@ import logging
 import socket
 import re
 import os
-import json
-import sys
 import traceback
 
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
@@ -27,38 +25,36 @@ class metricsHandler:
         self.metrics_type = metrics_type
 
     def on_get(self, req, resp):
-        self.target = req.get_param("target")
-        if not self.target:
+        target = req.get_param("target")
+        if not target:
             logging.error("No target parameter provided!")
             raise falcon.HTTPMissingParam("target")
 
-        logging.debug(f"Received Target: {self.target}")
+        logging.debug(f"Received Target %s", target)
 
         ip_re = re.compile(
-            r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
+            r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}"
+            r"([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
         )
 
         resp.set_header("Content-Type", CONTENT_TYPE_LATEST)
+        
+        host = None
 
-        if ip_re.match(self.target):
-            logging.debug(f"Target {self.target}: Target is an IP Address.")
+        if ip_re.match(target):
+            logging.debug("Target %s: Target is an IP Address.", target)
             try:
-                host = socket.gethostbyaddr(self.target)[0]
-                if host:
-                    self.host = host
+                host = socket.gethostbyaddr(target)[0]
             except socket.herror as err:
-                msg = f"Target {self.target}: Reverse DNS lookup failed: {err}"
-                logging.error(msg)
-                raise falcon.HTTPInvalidParam(msg, "target")
+                logging.warning("Target %s: Reverse DNS lookup failed: %s. Using IP address as host.", target, err)
+                host = target
         else:
-            logging.debug(f"Target {self.target}: Target is a hostname.")
-            self.host = self.target
+            logging.debug("Target %s: Target is a hostname.", target)
+            host = target
             try:
-                target = socket.gethostbyname(self.host)
-                if target:
-                    self.target = target
+                target = socket.gethostbyname(host)
             except socket.gaierror as err:
-                msg = f"Target {self.target}: DNS lookup failed: {err}"
+                msg = f"Target {target}: DNS lookup failed: {err}"
                 logging.error(msg)
                 raise falcon.HTTPInvalidParam(msg, "target")
 
@@ -66,12 +62,12 @@ class metricsHandler:
         pwd = self._config.get("password")
         rf_port = self._config.get("rf_port")
 
-        logging.debug(f"Target {self.target}: Using user {usr}")
+        logging.debug("Target %s: Using user %s", target, usr)
 
         with RedfishMetricsCollector(
             self._config,
-            target = self.target,
-            host = self.host,
+            target = target,
+            host = host,
             usr = usr,
             pwd = pwd, 
             rf_port = rf_port,
@@ -88,5 +84,5 @@ class metricsHandler:
 
             except Exception as err:
                 message = f"Exception: {traceback.format_exc()}"
-                logging.error(f"Target {self.target}: {message}")
+                logging.error("Target %s: %s", target, message)
                 raise falcon.HTTPBadRequest(description=message)
