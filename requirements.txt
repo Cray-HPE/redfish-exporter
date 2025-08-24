@@ -1,4 +1,4 @@
-requests==2.32.3
+requests==2.32.4
 prometheus-client==0.21.1
 falcon==4.0.2
 argparse==1.4.0
