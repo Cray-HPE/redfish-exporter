@@ -65,6 +65,7 @@ class RedfishMetricsCollector(object):
     def get_session(self):
         # Get the url for the server info and messure the response time
         logging.info("Target %s: Connecting to server %s", self.target, self.host)
+        logging.debug("Target %s: Attempting initial connection to /redfish/v1", self.target)
         start_time = time.time()
         server_response = self.connect_server("/redfish/v1", noauth=True)
         self._response_time = round(time.time() - start_time, 2)
@@ -79,6 +80,7 @@ class RedfishMetricsCollector(object):
         for key in ["SessionService", "StorageServices"]:
             if key in server_response:
                 self.urls[key] = server_response[key]['@odata.id']
+                logging.debug("Target %s: Found %s URL: %s", self.target, key, self.urls[key])
             else:
                 logging.warning(
                     "Target %s: No %s URL found on server %s!",
@@ -92,6 +94,8 @@ class RedfishMetricsCollector(object):
             "/redfish/v1", 
             basic_auth=True
         )
+        
+        logging.debug("Target %s: Session service response status: %s", self.target, self._last_http_code)
          
         if self._last_http_code != 200:
             logging.warning(
@@ -103,6 +107,7 @@ class RedfishMetricsCollector(object):
             return
 
         sessions_url = f"https://{self.target}:{self.rf_port}{session_service['SessionService']['@odata.id']}/Sessions"
+        logging.debug("Target %s: Attempting session creation at: %s", self.target, sessions_url)
         session_data = {"UserName": self._username, "Password": self._password}
         self._session.auth = None
         result = ""
@@ -157,6 +162,7 @@ class RedfishMetricsCollector(object):
                 self._auth_token = result.headers['X-Auth-Token']
                 self._session_url = result.json()['@odata.id']
                 logging.info("Target %s: Got an auth token from server %s!", self.target, self.host)
+                logging.debug("Target %s: Session URL: %s", self.target, self._session_url)
                 self._redfish_up = 1
 
     def connect_server(self, command, noauth=False, basic_auth=False):
@@ -175,8 +181,9 @@ class RedfishMetricsCollector(object):
         # check if we already established a session with the server
         if not self._session:
             self._session = requests.Session()
+            logging.debug("Target %s: Created new session", self.target)
         else:
-            logging.info("Target %s: Using existing session.", self.target)
+            logging.debug("Target %s: Using existing session.", self.target)
 
         self._session.verify = False
         self._session.headers.update({"charset": "utf-8"})
@@ -184,19 +191,21 @@ class RedfishMetricsCollector(object):
         self._session.headers.update({"k": "true"})
 
         if noauth:
-            logging.info("Target %s: Using no auth", self.target)
+            logging.debug("Target %s: Using no auth", self.target)
         elif basic_auth or self._basic_auth:
             self._session.auth = (self._username, self._password)
-            logging.info(f"Target {self.target}: Using basic auth with user {self._username}")
+            logging.debug(f"Target {self.target}: Using basic auth with user {self._username}")
         else:
-            logging.info("Target %s: Using auth token", self.target)
+            logging.debug("Target %s: Using auth token", self.target)
             self._session.auth = None
             self._session.headers.update({"X-Auth-Token": self._auth_token})
 
         logging.info("Target %s: Using URL %s", self.target, url)
+        logging.debug("Target %s: Request headers: %s", self.target, dict(self._session.headers))
         try:
             req = self._session.get(url)
             req.raise_for_status()
+            logging.debug("Target %s: Request successful, status: %s", self.target, req.status_code)
 
         except requests.exceptions.HTTPError as err:
             self._last_http_code = err.response.status_code
@@ -300,6 +309,7 @@ class RedfishMetricsCollector(object):
 
         if self.metrics_type == 'health':
 
+            logging.debug("Target %s: Starting health metrics collection", self.target)
             metrics = HealthCollector(self)
             metrics.collect()
             yield metrics.health_metrics
@@ -330,7 +340,8 @@ class RedfishMetricsCollector(object):
 
         if self._auth_token:
             session_url = f"https://{self.target}:{self.rf_port}{self._session_url}"
-            headers = {"x-auth-token": self._auth_token}    
+            headers = {"x-auth-token": self._auth_token}
+            logging.debug("Target %s: Deleting session at URL: %s", self.target, session_url)    
         else:
             logging.debug(
                 "Target %s: No Redfish session existing with server %s",
@@ -339,5 +350,5 @@ class RedfishMetricsCollector(object):
             )
 
         if self._session:
-            logging.info("Target %s: Closing requests session.", self.target)
+            logging.debug("Target %s: Closing requests session.", self.target)
             self._session.close()
