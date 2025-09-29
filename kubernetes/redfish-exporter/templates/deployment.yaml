@@ -38,11 +38,9 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c"]
+          command: ["python3", "/redfish_exporter/main.py"]
           args:
-          - |
-            python3 "/redfish_exporter/main.py"
-            "--config.file=/config/config.yml"
+            - "--config.file=/config/config.yml"
           ports:
             - name: http
               containerPort: 9220

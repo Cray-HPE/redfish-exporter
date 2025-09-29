@@ -164,6 +164,8 @@ class RedfishMetricsCollector(object):
                 logging.info("Target %s: Got an auth token from server %s!", self.target, self.host)
                 logging.debug("Target %s: Session URL: %s", self.target, self._session_url)
                 self._redfish_up = 1
+            else:
+                logging.debug("Target %s: Unexpected session creation status: %s", self.target, result.status_code)
 
     def connect_server(self, command, noauth=False, basic_auth=False):
         logging.captureWarnings(True)
@@ -181,9 +183,9 @@ class RedfishMetricsCollector(object):
         # check if we already established a session with the server
         if not self._session:
             self._session = requests.Session()
-            logging.debug("Target %s: Created new session", self.target)
+            logging.info("Target %s: Created new session", self.target)
         else:
-            logging.debug("Target %s: Using existing session.", self.target)
+            logging.info("Target %s: Using existing session.", self.target)
 
         self._session.verify = False
         self._session.headers.update({"charset": "utf-8"})
@@ -201,7 +203,6 @@ class RedfishMetricsCollector(object):
             self._session.headers.update({"X-Auth-Token": self._auth_token})
 
         logging.info("Target %s: Using URL %s", self.target, url)
-        logging.debug("Target %s: Request headers: %s", self.target, dict(self._session.headers))
         try:
             req = self._session.get(url)
             req.raise_for_status()
@@ -209,6 +210,7 @@ class RedfishMetricsCollector(object):
 
         except requests.exceptions.HTTPError as err:
             self._last_http_code = err.response.status_code
+            logging.debug("Target %s: HTTP Error - Status: %s, Response: %s", self.target, err.response.status_code, err)
 
             if err.response.status_code == 401:
                 logging.error(
@@ -221,30 +223,37 @@ class RedfishMetricsCollector(object):
 
         except requests.exceptions.ConnectTimeout:
             logging.error("Target %s: Timeout while connecting to %s", self.target, self.host)
+            logging.debug("Target %s: Connection timeout after %s seconds", self.target, self._timeout)
             self._last_http_code = 408
 
         except requests.exceptions.ReadTimeout:
             logging.error("Target %s: Timeout while reading data from %s", self.target, self.host)
+            logging.debug("Target %s: Read timeout after %s seconds", self.target, self._timeout)
             self._last_http_code = 408
 
         except requests.exceptions.ConnectionError as err:
             logging.error("Target %s: Unable to connect to %s: %s", self.target, self.host, err)
+            logging.debug("Target %s: Connection error details: %s", self.target, str(err))
             self._last_http_code = 444
         
         if req != "":
             self._last_http_code = req.status_code
+            logging.debug("Target %s: Response status code: %s", self.target, req.status_code)
             try:
                 req_text = req.json()
+                logging.info("Target %s: Response contains JSON data", self.target)
 
             except requests.JSONDecodeError:
-                logging.info("Target %s: No json data received.", self.target)
+                logging.info("Target %s: No JSON data received in response", self.target)
 
             # req will evaluate to True if the status code was between 200 and 400 and False otherwise.
             if req:
                 server_response = req_text
+                logging.debug("Target %s: Successfully parsed server response", self.target)
 
             # if the request fails the server might give a hint in the ExtendedInfo field
             else:
+                logging.debug("Target %s: Request failed, checking for extended error info", self.target)
                 if req_text:
                     logging.info(
                         "Target %s: %s: %s",
@@ -275,7 +284,6 @@ class RedfishMetricsCollector(object):
                             pass
 
         request_duration = round(time.time() - request_start, 2)
-        logging.debug("Target %s: Request duration: %s", self.target, request_duration)
         return server_response
 
     def collect(self):
@@ -341,7 +349,6 @@ class RedfishMetricsCollector(object):
         if self._auth_token:
             session_url = f"https://{self.target}:{self.rf_port}{self._session_url}"
             headers = {"x-auth-token": self._auth_token}
-            logging.debug("Target %s: Deleting session at URL: %s", self.target, session_url)    
         else:
             logging.debug(
                 "Target %s: No Redfish session existing with server %s",

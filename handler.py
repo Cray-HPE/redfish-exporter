@@ -73,8 +73,7 @@ class metricsHandler:
             rf_port = rf_port,
             metrics_type = self.metrics_type
         ) as registry:
-
-            # open a session with the remote board
+            
             registry.get_session()
 
             try:
