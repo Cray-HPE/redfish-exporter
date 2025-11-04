@@ -107,7 +107,7 @@ class HealthCollector(object):
         if "state" in smart_status and smart_status["state"] != "absent":
             smart_health = ( math.nan if smart_status["state"]  is None else self.col.status[smart_status["state"].lower()] )
             if smart_health is math.nan:
-                logging.warning(f"Target {self.col.target}: Host {self.col.host}, Model {device_model}: No health data found.")
+                logging.warning(f"Target {self.col.target}: Host {self.col.host}, Model {providing_drives.get('Model', 'Unknown')}: No health data found.")
         self.health_metrics.add_sample("smartmon_device_smart_healthy", value=smart_health, labels=current_labels)
 
         # smartmon_device_info
@@ -267,7 +267,7 @@ class HealthCollector(object):
         if "state" in smart_status and smart_status["state"] != "absent":
             smart_health = ( math.nan if smart_status["state"]  is None else self.col.status[smart_status["state"].lower()] )
             if smart_health is math.nan:
-                logging.warning(f"Target {self.col.target}: Host {self.col.host}, Model {device_model}: No health data found.")
+                logging.warning(f"Target {self.col.target}: Host {self.col.host}, Model {providing_drives.get('Model', 'Unknown')}: No health data found.")
         self.health_metrics.add_sample("smartmon_device_smart_healthy", value=smart_health, labels=current_labels)
 
         # smartmon_device_info
@@ -323,12 +323,16 @@ class HealthCollector(object):
 
         logging.debug(f"Target {self.col.target}: Get the SMART data.")
         storage_services_collection = self.col.connect_server(self.col.urls["StorageServices"])
+        logging.debug(f"Target {self.col.target}: Retrieved storage services collection")
         if not storage_services_collection or 'Members' not in storage_services_collection:
+           logging.debug(f"Target {self.col.target}: No storage services members found")
            return
 
         for storage_service_member in storage_services_collection["Members"]:
             for key, storage_url in storage_service_member.items():
+               logging.debug(f"Target {self.col.target}: Processing storage service: {storage_url}")
                if storage_url.split("/")[-1].startswith("lustre-") or not storage_url.startswith("/redfish/v1/"):
+                   logging.debug(f"Target {self.col.target}: Skipping storage service: {storage_url}")
                    continue
                storage_service = self.col.connect_server(storage_url)
                if isinstance(storage_service, int) and storage_service not in (200, 201):
@@ -336,6 +340,7 @@ class HealthCollector(object):
                    continue
                elif storage_service is not None and 'StoragePools' in storage_service:
                    storage_pool_collection = self.col.connect_server(storage_service["StoragePools"]['@odata.id'])
+                   logging.debug(f"Target {self.col.target}: Found storage pools endpoint")
                else:
                    logging.info("StoragePools endpoint does not exist")
                    continue
@@ -345,17 +350,20 @@ class HealthCollector(object):
 
                for storage_pool_member in storage_pool_collection["Members"]:
                    for pool, pool_url in storage_pool_member.items():
+                       logging.debug(f"Target {self.col.target}: Processing storage pool: {pool_url}")
                        if not pool_url.startswith("/redfish/v1/") or pool_url.endswith("NULL"):
+                          logging.debug(f"Target {self.col.target}: Skipping invalid pool URL: {pool_url}")
                           continue
                        storage_pool = self.col.connect_server(pool_url)
                        if isinstance(storage_pool, int) and storage_pool not in (200, 201):
-                          logging.info("No response from Storage pool endpoint")
+                          logging.debug("Target %s: No response from Storage pool endpoint: %s", self.col.target, pool_url)
                           continue
                        elif storage_pool is not None and 'CapacitySources' in storage_pool:
                           self.col.urls["CapacitySources"]=f"{storage_pool['@odata.id']}/CapacitySources"
+                          logging.debug(f"Target {self.col.target}: Found CapacitySources endpoint: {self.col.urls['CapacitySources']}")
                           capacity_source_collection = self.col.connect_server(self.col.urls["CapacitySources"])
                        else:
-                          logging.info("CapacitySources endpoint does not exist")
+                          logging.debug("Target %s: CapacitySources endpoint does not exist for pool %s", self.col.target, pool_url)
                           continue
                              
                        if not capacity_source_collection or 'Members' not in capacity_source_collection:
@@ -363,17 +371,20 @@ class HealthCollector(object):
 
                        for capacity_source_member in capacity_source_collection["Members"]:
                           for capacity, capacity_url in capacity_source_member.items():
+                              logging.debug(f"Target {self.col.target}: Processing capacity source: {capacity_url}")
                               if not capacity_url.startswith("/redfish/v1/") or capacity_url.endswith("NULL"):
+                                 logging.debug(f"Target {self.col.target}: Skipping invalid capacity URL: {capacity_url}")
                                  continue
                               capacity_source = self.col.connect_server(capacity_url)
                               if isinstance(capacity_source, int) and capacity_source not in (200, 201):
-                                 logging.info("No response from Capacity source endpoint")
+                                 logging.debug("Target %s: No response from Capacity source endpoint: %s", self.col.target, capacity_url)
                                  continue
                               elif capacity_source is not None and 'ProvidingDrives' in capacity_source:
                                  self.col.urls["ProvidingDrives"]=f"{capacity_source['@odata.id']}/ProvidingDrives"
+                                 logging.debug(f"Target {self.col.target}: Found ProvidingDrives endpoint: {self.col.urls['ProvidingDrives']}")
                                  providing_drives_collection = self.col.connect_server(self.col.urls["ProvidingDrives"])
                               else:
-                                 logging.info("ProvidingDrives endpoint does not exist")
+                                 logging.debug("Target %s: ProvidingDrives endpoint does not exist for capacity %s", self.col.target, capacity_url)
                                  continue
 
                               if not providing_drives_collection or 'Members' not in providing_drives_collection:
@@ -381,22 +392,27 @@ class HealthCollector(object):
 
                               for providing_drives_member in providing_drives_collection["Members"]:
                                   for drives, drives_url in providing_drives_member.items():
+                                      logging.debug(f"Target {self.col.target}: Processing drive: {drives_url}")
                                       if not drives_url.startswith("/redfish/v1") or drives_url.endswith("NULL"):
+                                          logging.debug(f"Target {self.col.target}: Skipping invalid drive URL: {drives_url}")
                                           continue
                                       providing_drives = self.col.connect_server(drives_url)
                                       if isinstance(providing_drives, int) and providing_drives not in (200, 201):
-                                          logging.info("No response from Providing Drives endpoint")
+                                          logging.debug("Target %s: No response from Providing Drives endpoint: %s", self.col.target, drives_url)
                                           continue
                                       elif providing_drives is not None and "@odata.id" in providing_drives:
                                           media_type = providing_drives["MediaType"].lower()
+                                          logging.debug(f"Target {self.col.target}: Processing drive with media type: {media_type}")
                                                        
                                           if media_type == "nvme":
                                               self.parse_nvme_info(providing_drives)
                                           elif media_type == "sas":
                                               self.parse_scsi_info(providing_drives)
                                           else:
+                                              logging.debug(f"Target {self.col.target}: Unsupported media type: {media_type}")
                                               continue
                                       else:
+                                          logging.debug(f"Target {self.col.target}: Invalid drive data received from: {drives_url}")
                                           continue
 
     def collect(self):
@@ -410,7 +426,9 @@ class HealthCollector(object):
    
         # Export the SMART data
         if self.col.urls["StorageServices"]:
+            logging.debug("Target %s: Starting SMART data collection", self.col.target)
             self.get_smart_data()
+            logging.debug("Target %s: Completed SMART data collection", self.col.target)
         else:
             logging.warning("Target %s: No SMART data provided! Cannot get SMART data!", self.col.target)
            

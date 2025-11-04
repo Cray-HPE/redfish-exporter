@@ -25,10 +25,12 @@ def falcon_app(config):
     port = int(os.getenv("LISTEN_PORT", config.get("listen_port", 9200)))
     addr = "0.0.0.0"
     logging.info("Starting Redfish Prometheus Server on Port %s", port)
+    logging.debug("Server configuration - Address: %s, Port: %s", addr, port)
 
     api = falcon.API()
     api.add_route("/health",  metricsHandler(config, metrics_type='health'))
     api.add_route("/", welcomePage())
+    logging.debug("Added routes: /health, /")
 
     with make_server(addr, port, api, ThreadingWSGIServer, handler_class=_SilentHandler) as httpd:
         httpd.daemon = True
@@ -103,9 +105,11 @@ if __name__ == "__main__":
     # get the config
 
     if args.config:
+        logging.debug("Loading configuration from: %s", args.config)
         try:
             with open(args.config, "r", encoding="utf8") as config_file:
                 configuration = yaml.load(config_file.read(), Loader=yaml.FullLoader)
+                logging.debug("Configuration loaded successfully")
         except FileNotFoundError as err:
             print(f"Config File not found: {err}")
             sys.exit(1)

@@ -30,7 +30,7 @@ class metricsHandler:
             logging.error("No target parameter provided!")
             raise falcon.HTTPMissingParam("target")
 
-        logging.debug(f"Received Target %s", target)
+        logging.debug(f"Received Target %s for metrics type: %s", target, self.metrics_type)
 
         ip_re = re.compile(
             r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}"
@@ -62,7 +62,7 @@ class metricsHandler:
         pwd = self._config.get("password")
         rf_port = self._config.get("rf_port")
 
-        logging.debug("Target %s: Using user %s", target, usr)
+        logging.debug("Target %s: Using user %s with port %s", target, usr, rf_port)
 
         with RedfishMetricsCollector(
             self._config,
@@ -73,14 +73,15 @@ class metricsHandler:
             rf_port = rf_port,
             metrics_type = self.metrics_type
         ) as registry:
-
-            # open a session with the remote board
+            
             registry.get_session()
 
             try:
                 # collect the actual metrics
+                logging.debug("Target %s: Collecting %s metrics", target, self.metrics_type)
                 resp.text = generate_latest(registry)
                 resp.status = falcon.HTTP_200
+                logging.debug("Target %s: Successfully generated %s metrics", target, self.metrics_type)
 
             except Exception as err:
                 message = f"Exception: {traceback.format_exc()}"
