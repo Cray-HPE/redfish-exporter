@@ -40,7 +40,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["python3", "/redfish_exporter/main.py"]
           args:
-            - "--config.file=/config/config.yml"
+            - "--config=/config/config.yml"
           ports:
             - name: http
               containerPort: 9220
