@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "redfish_exporter.labels" . | nindent 4 }}
 spec:
+  suspend: true
   schedule: "0 */6 * * *"
   jobTemplate:
     spec:
